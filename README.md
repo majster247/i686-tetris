@@ -1,5 +1,3 @@
-# i686-kernel
-Template kernel repo for future projects
+# i686-tetris
 
-
-Based on [Osdev Meaty Skeleton tutorial](https://wiki.osdev.org/Meaty_Skeleton)
+Simple tetris game
