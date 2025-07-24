@@ -6,6 +6,10 @@
 #define BOARD_WIDTH 10
 #define BOARD_HEIGHT 20
 
+#define BOARD_X_OFFSET 10  // Pozycja X planszy na ekranie
+#define BOARD_Y_OFFSET 2   // Pozycja Y planszy na ekranie
+
+
 static uint8_t board[BOARD_HEIGHT][BOARD_WIDTH];
 
 // VGA kolory figur
@@ -18,6 +22,40 @@ enum {
     COLOR_S = 10, // green
     COLOR_Z = 12  // red
 };
+
+
+typedef enum {
+    STATE_MENU,
+    STATE_GAME,
+    STATE_SETTINGS
+} GameState;
+
+static GameState game_state = STATE_MENU;
+
+static int menu_selected = 0;
+static const char* menu_items[] = {
+    "Play",
+    "Best Score",
+    "Settings"
+};
+#define MENU_ITEMS_COUNT (sizeof(menu_items)/sizeof(menu_items[0]))
+
+static void draw_menu() {
+    terminal_initialize();
+    terminal_writestring("=== TETRIS ===\n\n");
+
+    for (int i = 0; i < MENU_ITEMS_COUNT; i++) {
+        if (i == menu_selected)
+            terminal_writestring("> ");
+        else
+            terminal_writestring("  ");
+
+        terminal_writestring(menu_items[i]);
+        terminal_writestring("\n");
+    }
+}
+
+
 
 static const uint8_t tetromino_colors[7] = {
     COLOR_I, COLOR_O, COLOR_T, COLOR_J, COLOR_L, COLOR_S, COLOR_Z
@@ -228,9 +266,34 @@ static int score = 0;
 static bool paused = false;
 
 static void draw_cell(int x, int y, uint8_t color) {
-    terminal_putentryat(' ', (color << 4) | color, x*2, y);
-    terminal_putentryat(' ', (color << 4) | color, x*2 + 1, y);
+    terminal_putentryat(' ', (color << 4) | color, (x + BOARD_X_OFFSET)*2, y + BOARD_Y_OFFSET);
+    terminal_putentryat(' ', (color << 4) | color, (x + BOARD_X_OFFSET)*2 + 1, y + BOARD_Y_OFFSET);
 }
+
+static void draw_border() {
+    uint8_t color = 7; // szary
+    int left = BOARD_X_OFFSET * 2 - 2;
+    int right = (BOARD_X_OFFSET + BOARD_WIDTH) * 2;
+    int top = BOARD_Y_OFFSET - 1;
+    int bottom = BOARD_Y_OFFSET + BOARD_HEIGHT;
+
+    for (int y = top; y <= bottom; y++) {
+        terminal_putentryat('|', color, left, y);
+        terminal_putentryat('|', color, right, y);
+    }
+
+    for (int x = left; x <= right; x++) {
+        terminal_putentryat('-', color, x, top);
+        terminal_putentryat('-', color, x, bottom);
+    }
+
+    terminal_putentryat('+', color, left, top);
+    terminal_putentryat('+', color, right, top);
+    terminal_putentryat('+', color, left, bottom);
+    terminal_putentryat('+', color, right, bottom);
+}
+
+
 
 static void draw_board() {
     for (int y = 0; y < BOARD_HEIGHT; y++) {
@@ -329,23 +392,27 @@ static void spawn_piece() {
 }
 
 static void draw_score() {
-    // rysujemy tekst w prawym górnym rogu (kolumna 22)
     const char *prefix = "Score:";
+    int x_start = (BOARD_X_OFFSET + BOARD_WIDTH + 2) * 2;
+    int y_pos = BOARD_Y_OFFSET;
+
     for (int i = 0; prefix[i]; i++) {
-        terminal_putentryat(prefix[i], 15, 22 + i, 0);
+        terminal_putentryat(prefix[i], 15, x_start + i, y_pos);
     }
+
     char buf[10];
     int n = 0;
     int sc = score;
+
     if (sc == 0) {
-        terminal_putentryat('0', 15, 28, 0);
+        terminal_putentryat('0', 15, x_start + 6, y_pos + 1);
     } else {
         while (sc > 0) {
             buf[n++] = '0' + (sc % 10);
             sc /= 10;
         }
-        for (int i = 0; i < 10; i++) terminal_putentryat(' ', 15, 28 + i, 0);
-        for (int i = n-1; i >= 0; i--) terminal_putentryat(buf[i], 15, 28 + (n - 1 - i), 0);
+        for (int i = 0; i < 10; i++) terminal_putentryat(' ', 15, x_start + i, y_pos + 1);
+        for (int i = n-1; i >= 0; i--) terminal_putentryat(buf[i], 15, x_start + (n - 1 - i), y_pos + 1);
     }
 }
 
@@ -384,6 +451,7 @@ static void rotate_piece() {
         current_piece.rotation = new_rot;
     }
 }
+
 
 static void move_piece(int dx, int dy) {
     if (!check_collision(current_piece.x + dx, current_piece.y + dy, current_piece.type, current_piece.rotation)) {
@@ -453,7 +521,7 @@ void kernel_main(void) {
                 }
             }
         }
-
+        draw_border();
         draw_board();
         draw_current_piece();
         draw_score();
